@@ -1,3 +1,4 @@
+import requests
 import json
 import os
 import re
@@ -6,7 +7,7 @@ from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Application, MessageHandler, CommandHandler, filters, CallbackContext
 
 # Настройки Telegram
-from data import TELEGRAM_TOKEN, ADMIN_GROUP_ID
+from data import TELEGRAM_TOKEN, ADMIN_GROUP_ID, MATTERMOST_WEBHOOK_ACTIV, MATTERMOST_WEBHOOK_SELL
 
 # Путь к файлу для хранения данных о топиках
 DATA_FILE = 'user_topics.json'
@@ -39,6 +40,17 @@ user_data = {}  # user_id -> {"step": str, "data": dict}
 KEYBOARD_SALE_ACTIVATION = [['продажа'], ['активация']]
 KEYBOARD_MBB_KSN = [['МББ'], ['КСН']]
 
+async def send_to_mm(mattermost_webhook_url, message):
+    """
+    Отправляет сообщение в мм
+    """
+    payload = {
+        'text': message
+    }
+    response = requests.post(mattermost_webhook_url, json=payload)
+    if response.status_code != 200:
+        print(f"Ошибка при отправке в Mattermost: {response.text}")
+
 async def start(update: Update, context: CallbackContext):
     """
     Команда /start для начала работы с ботом.
@@ -46,7 +58,7 @@ async def start(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     user_data[user_id] = {"step": "enter_code", "data": {}}
     await update.message.reply_text(
-        "Введите первую часть сообщения (например, 1-xxxxxxx):"
+        "Введите лид вида 1-XXXXXXX:"
     )
 
 async def handle_user_message(update: Update, context: CallbackContext):
@@ -73,7 +85,7 @@ async def handle_user_message(update: Update, context: CallbackContext):
                 reply_markup=ReplyKeyboardMarkup(KEYBOARD_SALE_ACTIVATION, one_time_keyboard=True)
             )
         else:
-            await message.reply_text("Неверный формат кода. Введите код в формате 1-xxxxxxx.")
+            await message.reply_text("Неверный лид. Введите лид в формате 1-XXXXXXX.")
 
     elif step == "choose_action":
         # Проверяем, что выбрано "продажа" или "активация"
@@ -117,6 +129,11 @@ async def finalize_message(user_id: int, message: telegram.Message, context: Cal
         text=final_message,
         message_thread_id=topic_id
     )
+    # Отправляем сообщение в ММ
+    if "активация" in final_message:
+        await send_to_mm(mattermost_webhook_url=MATTERMOST_WEBHOOK_ACTIV, message=final_message)
+    else:
+        await send_to_mm(mattermost_webhook_url=MATTERMOST_WEBHOOK_SELL, message=final_message)
 
     # Очищаем данные пользователя
     del user_data[user_id]
