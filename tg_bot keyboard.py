@@ -39,6 +39,7 @@ user_data = {}  # user_id -> {"step": str, "data": dict}
 # Шаблоны клавиатур
 KEYBOARD_SALE_ACTIVATION = [['продажа'], ['активация']]
 KEYBOARD_MBB_KSN = [['МББ'], ['КСН']]
+KEYBOARD_MBB_KSN_NOTHING = [['МББ'], ['КСН'], ['Без продажи']]
 
 async def send_to_mm(mattermost_webhook_url, message):
     """
@@ -70,7 +71,10 @@ async def handle_user_message(update: Update, context: CallbackContext):
     text = message.text
 
     if user_id not in user_data:
-        await message.reply_text("Чтобы начать, используйте команду /start.")
+        await message.reply_text(
+            """Чтобы начать, используйте команду /start.
+            \nЗапросы обрабатываются по будням с 5:00 до 19:00"""
+            )
         return
 
     step = user_data[user_id]["step"]
@@ -97,6 +101,14 @@ async def handle_user_message(update: Update, context: CallbackContext):
                     "Выберите продукт:",
                     reply_markup=ReplyKeyboardMarkup(KEYBOARD_MBB_KSN, one_time_keyboard=True)
                 )
+#Где-то тут добавить продажу к активации
+            elif text == "активация":
+                user_data[user_id]["step"] = "choose_product"
+                await message.reply_text(
+                    "Выберите продукт:",
+                    reply_markup=ReplyKeyboardMarkup(KEYBOARD_MBB_KSN_NOTHING, one_time_keyboard=True)
+                )
+
             else:
                 user_data[user_id]["step"] = "final"
                 await finalize_message(user_id, message, context)  # Передаём context
@@ -105,6 +117,9 @@ async def handle_user_message(update: Update, context: CallbackContext):
         # Проверяем, что выбрано "МББ" или "КСН"
         if text in ["МББ", "КСН"]:
             user_data[user_id]["data"]["product"] = text
+            user_data[user_id]["step"] = "final"
+            await finalize_message(user_id, message, context)  # Передаём context
+        elif text in ["Без продажи"]:
             user_data[user_id]["step"] = "final"
             await finalize_message(user_id, message, context)  # Передаём context
         else:
