@@ -37,7 +37,8 @@ user_topics = load_user_topics()
 user_data = {}  # user_id -> {"step": str, "data": dict}
 
 # Шаблоны клавиатур
-KEYBOARD_SALE_ACTIVATION = [['продажа'], ['активация']]
+KEYBOARD_PARTNER = [['ФинДоставка'], ['ЕФин'], ['СК']]
+KEYBOARD_SALE_ACTIVATION = [['продажа'], ['активация'], ['активация + продажа']]
 KEYBOARD_MBB_KSN = [['МББ'], ['КСН']]
 KEYBOARD_MBB_KSN_NOTHING = [['МББ'], ['КСН'], ['Без продажи']]
 
@@ -73,7 +74,7 @@ async def handle_user_message(update: Update, context: CallbackContext):
     if user_id not in user_data:
         await message.reply_text(
             """Чтобы начать, используйте команду /start.
-            \nЗапросы обрабатываются по будням с 5:00 до 19:00"""
+            \nЗапросы обрабатываются по будням с 5:00 до 19:00 по МСК"""
             )
         return
 
@@ -83,17 +84,28 @@ async def handle_user_message(update: Update, context: CallbackContext):
         # Проверяем, соответствует ли код шаблону "1-XXXXXXX"
         if re.match(r"^1-[A-Za-z0-9]{7}$", text):
             user_data[user_id]["data"]["code"] = text
+            user_data[user_id]["step"] = "partner"
+            await message.reply_text(
+                "Выберите партнёра доставки:",
+                reply_markup=ReplyKeyboardMarkup(KEYBOARD_PARTNER, one_time_keyboard=True)
+            )
+        else:
+            await message.reply_text("Неверный лид. Введите лид в формате 1-XXXXXXX.")
+            
+    elif step == "partner":        
+        if text in ['ФинДоставка', 'ЕФин', 'СК']:
+            user_data[user_id]["data"]["partner"] = text
             user_data[user_id]["step"] = "choose_action"
             await message.reply_text(
                 "Выберите действие:",
                 reply_markup=ReplyKeyboardMarkup(KEYBOARD_SALE_ACTIVATION, one_time_keyboard=True)
             )
         else:
-            await message.reply_text("Неверный лид. Введите лид в формате 1-XXXXXXX.")
+            await message.reply_text("Выберите партнёра из предложенных вариантов.")
 
     elif step == "choose_action":
         # Проверяем, что выбрано "продажа" или "активация"
-        if text in ["продажа", "активация"]:
+        if text in ["продажа", "активация", "активация + продажа"]:
             user_data[user_id]["data"]["action"] = text
             if text == "продажа":
                 user_data[user_id]["step"] = "choose_product"
@@ -107,6 +119,12 @@ async def handle_user_message(update: Update, context: CallbackContext):
                 await message.reply_text(
                     "Выберите продукт:",
                     reply_markup=ReplyKeyboardMarkup(KEYBOARD_MBB_KSN_NOTHING, one_time_keyboard=True)
+                )
+            elif text == "активация + продажа":
+                user_data[user_id]["step"] = "choose_product"
+                await message.reply_text(
+                    "Выберите продукт:",
+                    reply_markup=ReplyKeyboardMarkup(KEYBOARD_MBB_KSN, one_time_keyboard=True)
                 )
 
             else:
@@ -133,7 +151,7 @@ async def finalize_message(user_id: int, message: telegram.Message, context: Cal
     username = message.from_user.username or message.from_user.first_name
 
     # Формируем сообщение по шаблону
-    final_message = f"{data['code']} {data['action']}"
+    final_message = f"{data['code']}\n{data['partner']} {data['action']}"
     if "product" in data:
         final_message += f" {data['product']}"
 
@@ -154,7 +172,7 @@ async def finalize_message(user_id: int, message: telegram.Message, context: Cal
     del user_data[user_id]
 
     await message.reply_text(
-        "Сообщение отправлено администраторам.",
+        "Сообщение отправлено.",
         reply_markup=ReplyKeyboardRemove()
     )
 
