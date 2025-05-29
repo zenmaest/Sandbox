@@ -7,7 +7,7 @@ from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
 from telegram.ext import Application, MessageHandler, CommandHandler, filters, CallbackContext
 
 # Настройки Telegram
-from data import TELEGRAM_TOKEN, ADMIN_GROUP_ID, MATTERMOST_WEBHOOK_ACTIV, MATTERMOST_WEBHOOK_SELL
+from data import TELEGRAM_TOKEN, ADMIN_GROUP_ID, MATTERMOST_WEBHOOK_ACTIV, MATTERMOST_WEBHOOK_SELL, MATTERMOST_WEBHOOK_SPEND
 
 # Путь к файлу для хранения данных о топиках
 DATA_FILE = 'user_topics.json'
@@ -38,7 +38,7 @@ user_data = {}  # user_id -> {"step": str, "data": dict}
 
 # Шаблоны клавиатур
 KEYBOARD_PARTNER = [['ФинДоставка'], ['ЕФин'], ['СК']]
-KEYBOARD_SALE_ACTIVATION = [['продажа'], ['активация'], ['активация + продажа']]
+KEYBOARD_SALE_ACTIVATION = [['продажа'], ['активация'], ['активация + продажа'], ['спенд'], ['проверить статус запроса']]
 KEYBOARD_MBB_KSN = [['МББ'], ['КСН']]
 KEYBOARD_MBB_KSN_NOTHING = [['МББ'], ['КСН'], ['Без продажи']]
 
@@ -105,7 +105,7 @@ async def handle_user_message(update: Update, context: CallbackContext):
 
     elif step == "choose_action":
         # Проверяем, что выбрано "продажа" или "активация"
-        if text in ["продажа", "активация", "активация + продажа"]:
+        if text in ["продажа", "активация", "активация + продажа", "спенд", "проверить статус запроса"]:
             user_data[user_id]["data"]["action"] = text
             if text == "продажа":
                 user_data[user_id]["step"] = "choose_product"
@@ -113,7 +113,6 @@ async def handle_user_message(update: Update, context: CallbackContext):
                     "Выберите продукт:",
                     reply_markup=ReplyKeyboardMarkup(KEYBOARD_MBB_KSN, one_time_keyboard=True)
                 )
-#Где-то тут добавить продажу к активации
             elif text == "активация":
                 user_data[user_id]["step"] = "choose_product"
                 await message.reply_text(
@@ -126,6 +125,13 @@ async def handle_user_message(update: Update, context: CallbackContext):
                     "Выберите продукт:",
                     reply_markup=ReplyKeyboardMarkup(KEYBOARD_MBB_KSN, one_time_keyboard=True)
                 )
+            elif text == "спенд":
+                user_data[user_id]["step"] = "final"
+                await finalize_message(user_id, message, context)  # Передаём context
+            
+            elif text == "проверить статус запроса":
+                user_data[user_id]["step"] = "final"
+                await finalize_message(user_id, message, context)  # Передаём context
 
             else:
                 user_data[user_id]["step"] = "final"
@@ -165,6 +171,8 @@ async def finalize_message(user_id: int, message: telegram.Message, context: Cal
     # Отправляем сообщение в ММ
     if "активация" in final_message:
         await send_to_mm(mattermost_webhook_url=MATTERMOST_WEBHOOK_ACTIV, message=final_message)
+    elif "спенд" in final_message:
+        await send_to_mm(mattermost_webhook_url=MATTERMOST_WEBHOOK_SPEND, message=final_message)
     else:
         await send_to_mm(mattermost_webhook_url=MATTERMOST_WEBHOOK_SELL, message=final_message)
 
