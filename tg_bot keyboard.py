@@ -74,7 +74,7 @@ async def handle_user_message(update: Update, context: CallbackContext):
     if user_id not in user_data:
         await message.reply_text(
             """Чтобы начать, используйте команду /start.
-            \nЗапросы обрабатываются по будням с 5:00 до 19:00 по МСК"""
+            \nЗапросы обрабатываются по будням с 6:00 до 19:00 по МСК"""
             )
         return
 
