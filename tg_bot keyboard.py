@@ -37,7 +37,7 @@ user_topics = load_user_topics()
 user_data = {}  # user_id -> {"step": str, "data": dict}
 
 # Шаблоны клавиатур
-KEYBOARD_PARTNER = [['ФинДоставка'], ['ЕФин'], ['СК']]
+# KEYBOARD_PARTNER = [['ФинДоставка'], ['ЕФин'], ['СК']]
 KEYBOARD_SALE_ACTIVATION = [['продажа'], ['активация'], ['активация + продажа'], ['спенд'], ['проверить статус запроса']]
 KEYBOARD_MBB_KSN = [['МББ'], ['КСН']]
 KEYBOARD_MBB_KSN_NOTHING = [['МББ'], ['КСН'], ['Без продажи']]
@@ -84,24 +84,24 @@ async def handle_user_message(update: Update, context: CallbackContext):
         # Проверяем, соответствует ли код шаблону "1-XXXXXXX"
         if re.match(r"^1-[A-Za-z0-9]{7}$", text):
             user_data[user_id]["data"]["code"] = text
-            user_data[user_id]["step"] = "partner"
-            await message.reply_text(
-                "Выберите партнёра доставки:",
-                reply_markup=ReplyKeyboardMarkup(KEYBOARD_PARTNER, one_time_keyboard=True)
-            )
-        else:
-            await message.reply_text("Неверный лид. Введите лид в формате 1-XXXXXXX.")
-            
-    elif step == "partner":        
-        if text in ['ФинДоставка', 'ЕФин', 'СК']:
-            user_data[user_id]["data"]["partner"] = text
             user_data[user_id]["step"] = "choose_action"
             await message.reply_text(
                 "Выберите действие:",
                 reply_markup=ReplyKeyboardMarkup(KEYBOARD_SALE_ACTIVATION, one_time_keyboard=True)
             )
         else:
-            await message.reply_text("Выберите партнёра из предложенных вариантов.")
+            await message.reply_text("Неверный лид. Введите лид в формате 1-XXXXXXX.")
+            
+    # elif step == "partner":        
+    #     if text in ['ФинДоставка', 'ЕФин', 'СК']:
+    #         user_data[user_id]["data"]["partner"] = text
+    #         user_data[user_id]["step"] = "choose_action"
+    #         await message.reply_text(
+    #             "Выберите действие:",
+    #             reply_markup=ReplyKeyboardMarkup(KEYBOARD_SALE_ACTIVATION, one_time_keyboard=True)
+    #         )
+    #     else:
+    #         await message.reply_text("Выберите партнёра из предложенных вариантов.")
 
     elif step == "choose_action":
         # Проверяем, что выбрано "продажа" или "активация"
@@ -157,7 +157,7 @@ async def finalize_message(user_id: int, message: telegram.Message, context: Cal
     username = message.from_user.username or message.from_user.first_name
 
     # Формируем сообщение по шаблону
-    final_message = f"{data['code']}\n{data['partner']} {data['action']}"
+    final_message = f"{data['code']}\n{data['action']}"
     if "product" in data:
         final_message += f" {data['product']}"
 
